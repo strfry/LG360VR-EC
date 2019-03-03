@@ -112,7 +112,7 @@ enum adc_channel {
 #define PD_SRC_VNC           PD_SRC_DEF_VNC_MV
 */
 
-#define PD_SRC_VNC           2650
+#define PD_SRC_VNC           2900
 
 
 #define PD_SRC_RD_THRESHOLD  PD_SRC_DEF_RD_THRESH_MV

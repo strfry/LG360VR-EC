@@ -26,27 +26,14 @@ const uint32_t pd_src_pdo[] = {
 };
 const int pd_src_pdo_cnt = ARRAY_SIZE(pd_src_pdo);
 
-const uint32_t pd_snk_pdo[] = {
-		PDO_FIXED(5000, 500, PDO_FIXED_FLAGS),
-		PDO_BATT(4750, 21000, 15000),
-		PDO_VAR(4750, 21000, 3000),
-};
-const int pd_snk_pdo_cnt = ARRAY_SIZE(pd_snk_pdo);
-
 void pd_set_input_current_limit(int port, uint32_t max_ma,
 				uint32_t supply_voltage)
 {
-	int red = supply_voltage == 20000;
-	int green = supply_voltage == 5000;
-	int blue = supply_voltage && !(red || green);
-	gpio_set_level(GPIO_LED_R_L, !red);
-	gpio_set_level(GPIO_LED_G_L, !green);
-	gpio_set_level(GPIO_LED_B_L, !blue);
 }
 
 int pd_is_valid_input_voltage(int mv)
 {
-	/* Any voltage less than the max is allowed */
+	/* Any voltage is allowed */
 	return 1;
 }
 
@@ -57,7 +44,7 @@ void pd_transition_voltage(int idx)
 int pd_set_power_supply_ready(int port)
 {
 	CPRINTS("PD: enable VBUS");
-	gpio_set_level(GPIO_LED_R_L, 0);
+	gpio_set_level(GPIO_LED_G_L, 0);
 	gpio_set_level(GPIO_VBUS_EN_L, 0);
 	return EC_SUCCESS; /* we are ready */
 }
@@ -66,6 +53,8 @@ void pd_power_supply_reset(int port)
 {
 	CPRINTS("PD: disable VBUS");
 	gpio_set_level(GPIO_LED_R_L, 1);
+	gpio_set_level(GPIO_LED_G_L, 1);
+	gpio_set_level(GPIO_LED_B_L, 1);
 	gpio_set_level(GPIO_VBUS_EN_L, 1);
 }
 
@@ -120,13 +109,13 @@ int pd_custom_vdm(int port, int cnt, uint32_t *payload,
 
 
 static int dp_flags[CONFIG_USB_PD_PORT_COUNT];
+static uint32_t dp_status[CONFIG_USB_PD_PORT_COUNT];
 
 static void svdm_safe_dp_mode(int port)
 {
-	CPRINTS("DP: safe_dp_mode");
 	/* make DP interface safe until configure */
 	dp_flags[port] = 0;
-	/* board_set_usb_mux(port, TYPEC_MUX_NONE, pd_get_polarity(port)); */
+        dp_status[port] = 0;
 }
 
 static int svdm_enter_dp_mode(int port, uint32_t mode_caps)
@@ -155,7 +144,6 @@ static int svdm_dp_status(int port, uint32_t *payload)
 				   0, /* power low? ... no */
 				   (!!(dp_flags[port] & DP_FLAGS_DP_ON)));
 
-	
 	CPRINTS("DP: dp_status payload0=%x payload1=%x", payload[0], payload[1]);
 	return 2;
 };
@@ -174,17 +162,64 @@ static int svdm_dp_config(int port, uint32_t *payload)
 	return 2;
 };
 
+static uint64_t hpd_deadline[CONFIG_USB_PD_PORT_COUNT];
+
 static void svdm_dp_post_config(int port)
 {
 	CPRINTS("DP: post_config");
-	dp_flags[port] |= DP_FLAGS_DP_ON;
-	if (!(dp_flags[port] & DP_FLAGS_HPD_HI_PENDING))
-		return;
+        dp_flags[port] |= DP_FLAGS_DP_ON;
+        if (!(dp_flags[port] & DP_FLAGS_HPD_HI_PENDING))
+                return;
+
+        gpio_set_level(GPIO_DP_HPD, 1);
+	gpio_set_level(GPIO_LED_B_L, 0);
+
+        /* set the minimum time delay (2ms) for the next HPD IRQ */
+        hpd_deadline[port] = get_time().val + HPD_USTREAM_DEBOUNCE_LVL;
 }
 
 static int svdm_dp_attention(int port, uint32_t *payload)
 {
-	CPRINTS("att %x", payload[0]);
+        int cur_lvl;
+        int lvl = PD_VDO_DPSTS_HPD_LVL(payload[1]);
+        int irq = PD_VDO_DPSTS_HPD_IRQ(payload[1]);
+        enum gpio_signal hpd = GPIO_DP_HPD;
+
+        cur_lvl = gpio_get_level(hpd);
+        dp_status[port] = payload[1];
+
+        /* Its initial DP status message prior to config */
+        if (!(dp_flags[port] & DP_FLAGS_DP_ON)) {
+                if (lvl)
+                        dp_flags[port] |= DP_FLAGS_HPD_HI_PENDING;
+                return 1;
+        }
+
+        if (irq & cur_lvl) {
+                uint64_t now = get_time().val;
+                /* wait for the minimum spacing between IRQ_HPD if needed */
+                if (now < hpd_deadline[port])
+                        usleep(hpd_deadline[port] - now);
+
+                /* generate IRQ_HPD pulse */
+                gpio_set_level(hpd, 0);
+		gpio_set_level(GPIO_LED_B_L, 1);
+                usleep(HPD_DSTREAM_DEBOUNCE_IRQ);
+                gpio_set_level(hpd, 1);
+		gpio_set_level(GPIO_LED_B_L, 0);
+
+                /* set the minimum time delay (2ms) for the next HPD IRQ */
+                hpd_deadline[port] = get_time().val + HPD_USTREAM_DEBOUNCE_LVL;
+        } else if (irq & !cur_lvl) {
+                CPRINTF("ERR:HPD:IRQ&LOW\n");
+                return 0; /* nak */
+        } else {
+                gpio_set_level(hpd, lvl);
+		gpio_set_level(GPIO_LED_B_L, !lvl);
+                /* set the minimum time delay (2ms) for the next HPD IRQ */
+                hpd_deadline[port] = get_time().val + HPD_USTREAM_DEBOUNCE_LVL;
+        }
+
 	/* ack */
 	return 1;
 }
@@ -193,7 +228,8 @@ static void svdm_exit_dp_mode(int port)
 {
 	CPRINTS("DP: exit_dp_mode");
 	svdm_safe_dp_mode(port);
-	/* gpio_set_level(PORT_TO_HPD(port), 0); */
+	gpio_set_level(GPIO_DP_HPD, 0);
+	gpio_set_level(GPIO_LED_B_L, 1);
 }
 
 const struct svdm_amode_fx supported_modes[] = {

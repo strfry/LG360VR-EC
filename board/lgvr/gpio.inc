@@ -25,7 +25,13 @@ GPIO(LED_G_L,      PIN(B, 14), GPIO_ODR_HIGH)
 
 GPIO(VBUS_EN_L,    PIN(B, 9), GPIO_ODR_HIGH)
 
-GPIO(DP_HPD,    PIN(A, 8), GPIO_ODR_LOW)
+GPIO(DP_HPD,    PIN(A, 8), GPIO_OUT_LOW)
+
+
+GPIO(EN_CTL,    PIN(A, 0), GPIO_ANALOG)
+
+GPIO(PRE_CTL,    PIN(A, 2), GPIO_OUT_HIGH)
+GPIO(VOD_CTL,    PIN(A, 3), GPIO_OUT_HIGH)
 
 
 /* Unimplemented signals which we need to emulate for now */

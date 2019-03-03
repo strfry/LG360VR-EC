@@ -8,8 +8,6 @@
 #ifndef __CROS_EC_USB_PD_CONFIG_H
 #define __CROS_EC_USB_PD_CONFIG_H
 
-#include "ina2xx.h"
-
 /* Timer selection for baseband PD communication */
 #define TIM_CLOCK_PD_TX_C0 16
 #define TIM_CLOCK_PD_RX_C0 1
@@ -78,6 +76,12 @@ static inline void pd_tx_spi_reset(int port)
 /* Drive the CC line from the TX block */
 static inline void pd_tx_enable(int port, int polarity)
 {
+	if (polarity) {
+		gpio_set_level(GPIO_LED_R_L, 0);
+		gpio_set_level(GPIO_LED_G_L, 1);
+		gpio_set_level(GPIO_LED_B_L, 1);
+	}
+
 	// from lucid board
 	/* put SPI function on TX pin */
 		/* USB_C0_CC2_TX_DATA: PA6 is SPI1 MISO */
