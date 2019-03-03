@@ -63,8 +63,8 @@ static inline void pd_set_pins_speed(int port)
 	STM32_GPIO_OSPEEDR(GPIO_B) |= 0x00000300;
 	/* 40 MHz pin speed on SPI TX PA6 */
 	STM32_GPIO_OSPEEDR(GPIO_A) |= 0x00003000;
-	/* 40 MHz pin speed on TIM17_CH1 (PB9) TODO: CHange to TIM16/PB8*/
-	STM32_GPIO_OSPEEDR(GPIO_B) |= 0x000C0000;
+	/* 40 MHz pin speed on TIM16/PB8*/
+	STM32_GPIO_OSPEEDR(GPIO_B) |= 0x00030000;
 }
 
 /* Reset SPI peripheral used for TX */
@@ -109,11 +109,10 @@ static inline void pd_tx_disable(int port, int polarity)
 /* we know the plug polarity, do the right configuration */
 static inline void pd_select_polarity(int port, int polarity)
 {
-	/* use the right comparator */
 	STM32_COMP_CSR = (STM32_COMP_CSR
 		& ~(STM32_COMP_CMP1INSEL_MASK | STM32_COMP_CMP2INSEL_MASK
 		  |STM32_COMP_CMP1EN | STM32_COMP_CMP2EN))
-		| STM32_COMP_CMP1INSEL_INM4 | STM32_COMP_CMP2INSEL_INM4
+		| STM32_COMP_CMP1INSEL_VREF12 | STM32_COMP_CMP2INSEL_VREF12
 		| (polarity ? STM32_COMP_CMP2EN : STM32_COMP_CMP1EN);
 }
 
@@ -123,9 +122,6 @@ static inline void pd_tx_init(void)
 	gpio_config_module(MODULE_USB_PD, 1);
 
 #ifndef CONFIG_USB_PD_TX_PHY_ONLY
-	/* Detect when VBUS crosses the 4.5V threshold (1.25mV/bit) */
-	//ina2xx_write(0, INA2XX_REG_ALERT, 4500 * 100 / 125);
-	//ina2xx_write(0, INA2XX_REG_MASK, INA2XX_MASK_EN_BOL);
 	/* start as a power consumer */
 	gpio_set_level(GPIO_CC1_RD, 0);
 	gpio_set_level(GPIO_CC2_RD, 0);

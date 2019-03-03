@@ -56,16 +56,22 @@ void pd_transition_voltage(int idx)
 
 int pd_set_power_supply_ready(int port)
 {
+	CPRINTS("PD: enable VBUS");
+	gpio_set_level(GPIO_LED_R_L, 0);
+	gpio_set_level(GPIO_VBUS_EN_L, 0);
 	return EC_SUCCESS; /* we are ready */
 }
 
 void pd_power_supply_reset(int port)
 {
+	CPRINTS("PD: disable VBUS");
+	gpio_set_level(GPIO_LED_R_L, 1);
+	gpio_set_level(GPIO_VBUS_EN_L, 1);
 }
 
 int pd_snk_is_vbus_provided(int port)
 {
-	return (gpio_get_level(GPIO_VBUS_EN) == 0);
+	return (gpio_get_level(GPIO_VBUS_EN_L) == 0);
 }
 
 int pd_board_checks(void)

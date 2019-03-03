@@ -10,7 +10,7 @@
 
 /* Timer selection for baseband PD communication */
 #define TIM_CLOCK_PD_TX_C0 14
-#define TIM_CLOCK_PD_RX_C0  3
+#define TIM_CLOCK_PD_RX_C0  1
 
 #define TIM_CLOCK_PD_TX(p) TIM_CLOCK_PD_TX_C0
 #define TIM_CLOCK_PD_RX(p) TIM_CLOCK_PD_RX_C0

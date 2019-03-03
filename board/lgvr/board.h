@@ -21,10 +21,15 @@
 #define CONFIG_USB_PD_ALT_MODE
 #define CONFIG_USB_PD_ALT_MODE_DFP
 /*#define CONFIG_USB_PD_DUAL_ROLE*/
-#define CONFIG_USB_PD_INTERNAL_COMP
 #define CONFIG_USB_PD_PORT_COUNT 1
 #define CONFIG_USB_PD_TCPC
 #define CONFIG_USB_PD_TCPM_STUB
+
+#define CONFIG_USB_PD_INTERNAL_COMP
+
+/* #define CONFIG_USBC_BACKWARDS_COMPATIBLE_DFP*/
+
+#define CONFIG_USB_PD_DEBUG_LEVEL 2
 
 /*
 #define CONFIG_USB_PD_VBUS_DETECT_GPIO
@@ -85,7 +90,7 @@ void trace_packets(void);
 void set_trace_mode(int mode);
 
 /* Timer selection */
-#define TIM_ADC       17
+#define TIM_ADC       3
 /* Timer selection */
 #define TIM_CLOCK32 2
 #define TIM_WATCHDOG 7
@@ -103,7 +108,13 @@ enum adc_channel {
 };
 
 /* Standard-current Rp */
+/*
 #define PD_SRC_VNC           PD_SRC_DEF_VNC_MV
+*/
+
+#define PD_SRC_VNC           2650
+
+
 #define PD_SRC_RD_THRESHOLD  PD_SRC_DEF_RD_THRESH_MV
 
 /* delay necessary for the voltage transition on the power supply */
